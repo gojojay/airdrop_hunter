@@ -1,28 +1,42 @@
 const { schedule } = require("@netlify/functions");
-const { ethers } = require("ethers")
 require("dotenv").config()
 
-const IERC20 = require('@openzeppelin/contracts/build/contracts/ERC20.json')
+const zksync = require("zksync");
+const ethers = require("ethers");
 
 const handler = async function (event, context) {
   console.log("Received event:", event);
-  const provider = new ethers.providers.JsonRpcProvider(process.env.RPC_URL)
 
-  const ACCOUNT_1 = new ethers.Wallet(process.env.PRIVATE_KEY_1, provider)
-  const ACCOUNT_2 = new ethers.Wallet(process.env.PRIVATE_KEY_2, provider)
-  const ACCOUNT_3 = new ethers.Wallet(process.env.PRIVATE_KEY_3, provider)
+  // Connect to zkSync network
+  const syncProvider = await zksync.Provider.newHttpProvider(process.env.ZKSYNC_RPC_URL);
 
-  const ERC20 = new ethers.Contract(process.env.TOKEN_ADDRESS, IERC20.abi)
+  // Create wallets for each account
+  const ethProvider = new ethers.providers.JsonRpcProvider(process.env.RPC_URL);
+  const ACCOUNT_1 = new ethers.Wallet(process.env.PRIVATE_KEY_1, ethProvider);
+  const ACCOUNT_2 = new ethers.Wallet(process.env.PRIVATE_KEY_2, ethProvider);
+  const ACCOUNT_3 = new ethers.Wallet(process.env.PRIVATE_KEY_3, ethProvider);
+  const syncWallet1 = new zksync.Wallet(ACCOUNT_1, syncProvider);
+  const syncWallet2 = new zksync.Wallet(ACCOUNT_2, syncProvider);
+  const syncWallet3 = new zksync.Wallet(ACCOUNT_3, syncProvider);
 
-  await ERC20.connect(ACCOUNT_1).transfer(ACCOUNT_2.address, process.env.TRANSFER_AMOUNT)
-  await ERC20.connect(ACCOUNT_1).transfer(ACCOUNT_3.address, process.env.TRANSFER_AMOUNT)
+  // Perform transfers
+  const transfer1 = await syncWallet1.syncTransfer({
+    to: syncWallet2.address(),
+    token: "USDC", // replace with your ERC20 token symbol
+    amount: zksync.utils.closestPackableTransactionAmount(process.env.TRANSFER_AMOUNT),
+  });
+  const transfer2 = await syncWallet1.syncTransfer({
+    to: syncWallet3.address(),
+    token: "USDC", // replace with your ERC20 token symbol
+    amount: zksync.utils.closestPackableTransactionAmount(process.env.TRANSFER_AMOUNT),
+  });
 
-  console.log(`Transfers Complete!`)
-  console.log(`See transactions at: https://goerli.etherscan.io/address/${ACCOUNT_1.address}`)
+  console.log(`Transfers Complete!`);
+  console.log(`See transactions at: https://zkscan.io/accounts/${syncWallet1.address()}`);
 
   return {
     statusCode: 200,
-  }
+  };
 }
 
-exports.handler = schedule("@daily", handler)
+exports.handler = schedule("@weekly", handler);
