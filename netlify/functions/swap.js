@@ -3,7 +3,7 @@ const { ethers } = require("ethers");
 const zksync = require("zksync");
 require("dotenv").config();
 
-const SyncswapRouterABI = require("./SyncswapRouterABI.json");
+const SyncswapRouterABI = require("../../SyncswapRouterABI.json");
 
 const handler = async function (event, context) {
   console.log("Received event:", event);
